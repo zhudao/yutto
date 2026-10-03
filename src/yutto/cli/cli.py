@@ -59,6 +59,14 @@ def handle_default_subcommand(argv: list[str]) -> list[str]:
     return argv
 
 
+def get_download_subparser(parser: argparse.ArgumentParser) -> argparse.ArgumentParser:
+    for action in parser._actions:
+        if isinstance(action, argparse._SubParsersAction) and "download" in action.choices:
+            return action.choices["download"]
+    else:
+        raise ValueError("download subparser not found")
+
+
 def parse_config_path() -> Path | None:
     pre_parser = argparse.ArgumentParser(description="yutto pre parser", add_help=False)
     pre_parser.add_argument(
@@ -160,6 +168,15 @@ def add_serve_arguments(parser: argparse.ArgumentParser, settings: YuttoSettings
         default=settings.basic.jobs,
         help="同时执行的下载任务数，默认为 1",
     )
+
+
+def parse_subtitle_languages(value: str) -> list[str] | None:
+    if value.strip().lower() == "all":
+        return None
+    languages = [language.strip() for language in value.split(",")]
+    if not all(languages):
+        raise argparse.ArgumentTypeError("字幕语言代码不能为空，使用 `,` 分隔，或使用 all 下载全部字幕")
+    return languages
 
 
 def add_download_arguments(parser: argparse.ArgumentParser, settings: YuttoSettings):
@@ -368,6 +385,13 @@ def add_download_arguments(parser: argparse.ArgumentParser, settings: YuttoSetti
         dest="require_subtitle",
         action=create_select_required_action(select=["subtitle"], deselect=invert_selection(["subtitle"])),
         help="仅生成字幕文件",
+    )
+    group_resource.add_argument(
+        "--subtitle-languages",
+        default=settings.resource.subtitle_languages,
+        type=parse_subtitle_languages,
+        metavar="LANGUAGES",
+        help="字幕语言代码，使用 `,` 分隔（如 zh 或 zh,en），包含地区及 AI 变体；默认 all 下载全部字幕",
     )
     group_resource.add_argument(
         "--with-metadata",
